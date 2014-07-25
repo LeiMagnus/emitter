@@ -132,10 +132,10 @@ function makeEmitter(id,xMax,yMax,duration,parent){
 		},
 		expand: function(){
 			this.init++;
-			if(this.init>this.xMax*Math.sqrt(2)+this.duration){
+			if(this.init>this.xMax*Math.sqrt(2)+this.dura){
 				this.active=false;
 				ll=emitters.length;
-				emitters.push(makeEmitter(ll,bigX,bigY,this.duration,grid));
+				emitters.push(makeEmitter(ll,bigX,bigY,this.dura,grid));
 			}
 			for(i=0;i<this.xMax;i++){
 				for(j=0;j<this.yMax;j++){
