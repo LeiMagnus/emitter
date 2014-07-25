@@ -1,0 +1,268 @@
+<html>
+<title>Emitters and Blox</title>
+<head>
+<style>
+</style>
+<script>
+var grid;
+var emitters=[];
+var blox=[];
+var bigX=70;
+var bigY=70;
+var emitterNum=2;
+var blokNum=6;
+var duration=36;
+
+function randomColor(){
+	red=Math.floor(Math.random()*186)+70;
+	green=Math.floor(Math.random()*186)+70;
+	blue=Math.floor(Math.random()*186)+70;
+	return 'rgb('+red+','+green+','+blue+')';
+}
+
+function makeBlock(xMax,yMax,size,col,parent){
+	tmp_block={
+		xMax: xMax,
+		yMax: yMax,
+		size: size,
+		col: col,
+		parent: parent,
+		x: Math.floor(Math.random()*xMax),
+		y: Math.floor(Math.random()*yMax),
+		pos: '',
+		print: function(){
+			for(xx=-size;xx<=size;xx++){
+				for(yy=-size;yy<=size;yy++){
+					if(this.parent.getBox(this.x+xx,this.y+yy)!=false){
+						this.parent.getBox(this.x+xx,this.y+yy).occ.push(-1);
+						this.parent.getBox(this.x+xx,this.y+yy).style.backgroundColor=this.col;
+					}
+				}
+			}
+		}
+	}
+	return tmp_block;
+}
+
+function makeEmitter(id,xMax,yMax,duration,parent){
+	tmp_emitter={
+		active: true,
+		id: id,
+		xMax: xMax,
+		yMax: yMax,
+		dura: duration,
+		parent: parent,
+		init: 0,
+		col: randomColor(),
+		x: Math.random()*xMax,
+		y: Math.random()*yMax,
+		origin: '',
+		getColor: function(){
+			arr=['','',''];
+			curr=0;
+			for(t=4;t<this.col.length-1;t++){
+				if(this.col.charAt(t)==','){
+					arr[curr]*=1;
+					curr++;
+					k++;
+				}else{
+					arr[curr]+=this.col.charAt(t);
+				}
+			}
+			arr[2]*=1;
+			return arr;
+		},
+		isWithinRange: function(cell){
+			dx=cell.x-this.x;
+			dy=cell.y-this.y;
+			s=Math.sqrt(dx*dx+dy*dy);
+			if(s<=this.init && s>=this.init-this.dura){
+				return true;
+			}
+			return false;
+		},
+		canSeeOrigin: function(cell){
+			nx=cell.x;
+			ny=cell.y;
+			dx=nx-this.x;
+			dy=ny-this.y;
+			m=dy/dx;
+			c=ny-m*nx;
+			if((m<1&&m>=0) || (m>-1&&m<0)){
+				if(dx<0){
+					while(nx-this.x<0){
+						if(this.parent.getBox(nx,ny).hasOcc(-1)){
+							return false;
+						}
+						nx+=0.5;
+						ny=m*nx+c;
+					}
+					return true;
+				}else{
+					while(nx-this.x>0){
+						if(this.parent.getBox(nx,ny).hasOcc(-1)){
+							return false;
+						}
+						nx-=0.5;
+						ny=m*nx+c;
+					}
+					return true;
+				}
+			}else{
+				if(dy<0){
+					while(ny-this.y<0){
+						if(this.parent.getBox(nx,ny).hasOcc(-1)){
+							return false;
+						}
+						ny+=0.5;
+						nx=(ny-c)/m;
+					}
+					return true;
+				}else{
+					while(ny-this.y>0){
+						if(this.parent.getBox(nx,ny).hasOcc(-1)){
+							return false;
+						}
+						ny-=0.5;
+						nx=(ny-c)/m;
+					}
+					return true;
+				}
+			}
+		},
+		expand: function(){
+			this.init++;
+			if(this.init>this.xMax*Math.sqrt(2)+this.duration){
+				this.active=false;
+				ll=emitters.length;
+				emitters.push(makeEmitter(ll,bigX,bigY,this.duration,grid));
+			}
+			for(i=0;i<this.xMax;i++){
+				for(j=0;j<this.yMax;j++){
+					if(this.isWithinRange(this.parent.box[i][j])&&this.canSeeOrigin(this.parent.box[i][j])){
+						if(!this.parent.box[i][j].hasOcc(this.id)){
+							this.parent.box[i][j].occ.push(this.id);
+							this.parent.box[i][j].refresh();
+						}
+					}else{
+						if(this.parent.box[i][j].hasOcc(this.id)){
+							this.parent.box[i][j].vacate(this.id);
+						}
+						if(this.parent.box[i][j].occ.length!=0){
+							this.parent.box[i][j].refresh();
+						}else if(this.parent.style.backgroundColor!='rgb(0, 0, 0)'){
+							this.parent.box[i][j].style.backgroundColor='black';
+						}
+					}
+				}
+			}
+		},
+	}
+	tmp_emitter.origin=tmp_emitter.parent.getBox(tmp_emitter.x,tmp_emitter.y);
+	tmp_emitter.origin.occ.push(tmp_emitter.id);
+	tmp_emitter.origin.style.backgroundColor=tmp_emitter.col;
+	return tmp_emitter;
+}
+
+function makeGrid(id,xMax,yMax,style){
+	tmp_grid={
+		id: id,
+		xMax: xMax,
+		yMax: yMax,
+		style: style,
+		box: [],
+		print: function(){
+			result='<table style="background-color:black;" id='+this.id+'>';
+			for(i=0;i<this.xMax;i++){
+				result+='<tr>';
+				for(j=0;j<this.yMax;j++){
+					result+='<td style='+this.style+'></td>';
+				}
+				result+='</tr>';
+			}
+			return result+'</table>';
+		},
+		getBox: function(x,y){
+			if(x>this.xMax-0.5 || y>this.yMax-0.5 || x<-0.5 || y<-0.5){
+				return false;
+			}
+			return this.box[Math.round(x)][Math.round(y)];
+		},
+		setBoxAttributes: function(){
+			for(i=0;i<this.xMax;i++){
+				this.box[i]=[];
+				for(j=0;j<this.yMax;j++){
+					this.box[i][j]=document.getElementById(this.id).getElementsByTagName('tr')[i].getElementsByTagName('td')[j];
+					this.box[i][j].occ=[];
+					this.box[i][j].x=i;
+					this.box[i][j].y=j;
+					this.box[i][j].hasOcc=function(z){
+						for(k=0;k<this.occ.length;k++){
+							if(this.occ[k]==z){
+								return true;
+							}
+						}
+						return false;
+					}
+					this.box[i][j].vacate=function(z){
+						for(k=0;k<this.occ.length;k++){
+							if(this.occ[k]==z){
+								this.occ.splice(k,1);
+								break;
+							}
+						}
+					}
+					this.box[i][j].refresh=function(){
+						newCol=[0,0,0];
+						count=0;
+						for(aa=0;aa<this.occ.length;aa++){
+							if(this.occ[aa]!=-1){
+								for(q=0;q<3;q++){
+									newCol[q]+=emitters[this.occ[aa]].getColor()[q];
+								}
+								count++;
+							}
+						}
+						for(q=0;q<2;q++){
+							newCol[q]=Math.round(newCol[q]/count);
+						}
+						this.style.backgroundColor='rgb('+newCol[0]+','+newCol[1]+','+newCol[2]+')';
+					}
+				}
+			}
+		}
+	}
+	return tmp_grid;
+}
+
+function run(){
+	grid=makeGrid('tbl',bigX,bigY,'background-color:black;height:2px;width:2px;');
+	document.body.innerHTML=grid.print();
+	grid.setBoxAttributes();
+//	for(cc=0;cc<blokNum;cc++){
+//		ff=Math.floor(Math.random()*3)+2;
+//		blox.push(makeBlock(bigX,bigY,ff,randomColor(),grid));
+//		blox[cc].print();
+//	}
+	for(cc=0;cc<100;cc++){
+		iii=Math.floor(Math.random()*bigX);
+		jjj=Math.floor(Math.random()*bigY);
+		grid.getBox(iii,jjj).occ.push(-1);
+		grid.getBox(iii,jjj).style.backgroundColor='#c0c0c0';
+	}
+	for(cc=0;cc<emitterNum;cc++){
+		emitters.push(makeEmitter(cc,bigX,bigY,duration,grid));
+	}
+	setInterval(function(){
+		for(gg=0;gg<emitters.length;gg++){
+			if(emitters[gg].active){
+				emitters[gg].expand();
+			}
+		}
+	},96);
+}
+</script>
+</head>
+<body onload='run();'>
+</body>
+</html>
